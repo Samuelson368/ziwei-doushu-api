@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+vfrom flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
 import subprocess
@@ -23,18 +23,21 @@ class ZiweiAPI:
         self.is_railway = os.environ.get('RAILWAY_ENVIRONMENT') is not None
         self.is_render = os.environ.get('RENDER') is not None
         
-        # 根据环境设置路径 - 针对api/目录结构优化
+        # 根据环境设置路径 - 修正版
         if self.is_vercel:
-            # Vercel环境：脚本在根目录，Python在api/目录
-            self.script_path = '/var/task/ziwei_node_script.js'
+            # Vercel环境：脚本在api目录
+            self.script_path = '/var/task/api/ziwei_node_script.js'
             self.node_path = 'node'
         elif self.is_railway or self.is_render:
-            # Railway/Render环境：从api目录访问根目录
-            self.script_path = os.path.join('..', 'ziwei_node_script.js')
+            # Railway/Render环境：脚本在当前目录
+            self.script_path = os.path.join('.', 'ziwei_node_script.js')
             self.node_path = 'node'
         else:
-            # 本地开发环境：从api目录访问根目录
-            self.script_path = os.path.join('..', 'ziwei_node_script.js')
+            # 本地开发环境：脚本在当前目录或上级目录
+            if os.path.exists('./ziwei_node_script.js'):
+                self.script_path = './ziwei_node_script.js'
+            else:
+                self.script_path = '../ziwei_node_script.js'
             self.node_path = 'node'
         
         logger.info(f"🌍 环境检测: Vercel={self.is_vercel}, Railway={self.is_railway}, Render={self.is_render}")
@@ -156,6 +159,7 @@ class ZiweiAPI:
         if self.is_vercel:
             node_modules_paths = [
                 '/var/task/node_modules',  # Vercel主路径
+                '/var/task/api/node_modules',  # api目录下
                 '/opt/node_modules',       # Vercel备用路径
             ]
         else:
@@ -477,7 +481,7 @@ def index():
             }
         },
         "examples": {
-            "curl": "curl -X POST https://your-app.vercel.app/api/ziwei/astrolabe -H 'Content-Type: application/json' -d '{\"birth_date\":\"2004-8-18\",\"birth_time\":\"09:30\",\"gender\":\"男\",\"fix_leap\":true}'",
+            "curl": "curl -X POST https://ziwei-doushu-api10.vercel.app/api/ziwei/astrolabe -H 'Content-Type: application/json' -d '{\"birth_date\":\"2004-8-18\",\"birth_time\":\"09:30\",\"gender\":\"男\",\"fix_leap\":true}'",
             "response": {
                 "success": True,
                 "error": None,
@@ -491,13 +495,8 @@ def index():
         "timestamp": datetime.now().isoformat()
     })
 
-# Vercel无服务器函数入口点 - 关键！
-def handler(request):
-    """Vercel WSGI入口函数"""
-    return app(request.environ, lambda *args: None)
-
-# 导出app给Vercel使用
-app_handler = app
+# Vercel入口点 - 直接导出app
+app = app
 
 if __name__ == '__main__':
     # 本地开发模式
